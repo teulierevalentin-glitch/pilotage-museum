@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pilotage du plan Muséum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout : barre de navigation fixe, puis une vue à la fois ; grilles qui passent en une colonne sous 760 px */
+:root{
+  --bg:#f4f6f3; --surface:#ffffff; --sunk:#eaeee8; --line:#d5ddd3; --ink:#18221d; --muted:#5b6a61;
+  --accent:#1f3864; --accent-soft:#e3e9f4; --accent-ink:#ffffff;
+  --ok:#2c7a4b; --ok-soft:#e1f1e6; --warn:#a8650f; --warn-soft:#fbeed8; --crit:#b3352a; --crit-soft:#f8e1de;
+  --display:"Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --text:"Inter", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#111613; --surface:#18201b; --sunk:#1f2922; --line:#2e3b33; --ink:#e6ece7; --muted:#9aa89f;
+  --accent:#8fadde; --accent-soft:#1f2b40; --accent-ink:#0f1626;
+  --ok:#6fcf93; --ok-soft:#173323; --warn:#e9b061; --warn-soft:#3a2a12; --crit:#f08a7e; --crit-soft:#3d1c18; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#111613; --surface:#18201b; --sunk:#1f2922; --line:#2e3b33; --ink:#e6ece7; --muted:#9aa89f;
+  --accent:#8fadde; --accent-soft:#1f2b40; --accent-ink:#0f1626;
+  --ok:#6fcf93; --ok-soft:#173323; --warn:#e9b061; --warn-soft:#3a2a12; --crit:#f08a7e; --crit-soft:#3d1c18; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--text);font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;padding-block:12px}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand b{font:600 18px/1.2 var(--display);letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:12.5px}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+nav.tabs a{padding:7px 12px;border-radius:6px;color:var(--muted);text-decoration:none;font-weight:500}
+nav.tabs a:hover{background:var(--sunk);color:var(--ink)}
+nav.tabs a[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.demo{background:var(--accent-soft);border-bottom:1px solid var(--line)}
+.demo .wrap{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding-block:8px;font-size:12.5px}
+.demo strong{font-weight:600}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:5px 10px}
+.btn:hover{border-color:var(--accent)}
+
+main{padding-block:24px 48px}
+section.view{display:flex;flex-direction:column;gap:20px}
+h1{font:600 26px/1.2 var(--display);letter-spacing:-.015em;margin:0;text-wrap:balance}
+h2{font:600 17px/1.3 var(--display);margin:0;text-wrap:balance}
+.lead{color:var(--muted);margin:4px 0 0;max-width:70ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:0}
+.panel > h2{margin-bottom:12px}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g2{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+@media (max-width:900px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.g2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:440px){.g4{grid-template-columns:minmax(0,1fr)}}
+
+.fig{display:flex;flex-direction:column;gap:6px}
+.fig .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.fig .v{font:600 28px/1.1 var(--display)}
+.fig .v small{font:500 14px var(--text);color:var(--muted);margin-left:4px}
+.fig .s{font-size:12.5px;color:var(--muted)}
+.bar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+
+.tag{font:500 11.5px var(--mono);letter-spacing:.04em;border:1px solid var(--ink);border-radius:3px;padding:1px 5px;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.ok{color:var(--ok);background:var(--ok-soft)} .vig{color:var(--warn);background:var(--warn-soft)} .alerte{color:var(--crit);background:var(--crit-soft)}
+.counts{display:flex;flex-wrap:wrap;gap:8px}
+.counts .pill{font-size:13px;padding:4px 12px}
+
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+td.n,th.n{text-align:right}
+tr.axe td{background:var(--sunk);font-weight:600;font-size:12.5px;padding-block:6px}
+tr.row-alerte td:first-child{box-shadow:inset 3px 0 0 var(--crit)}
+tr.row-vig td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+tr.row-ok td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
+.sub{display:block;font-size:12px;color:var(--muted)}
+input[type=number]{width:92px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;text-align:right}
+select{padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit}
+.calc{font-size:12.5px;color:var(--muted)}
+
+.att{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.att li{display:flex;gap:12px;align-items:flex-start}
+.att li div{min-width:0}
+.att p{margin:2px 0 0;color:var(--muted);font-size:13px}
+
+svg text{fill:var(--muted);font:12px var(--text)}
+svg .lbl{fill:var(--ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block}
+
+.rule{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rule:last-child{border-bottom:0}
+.rule .sig{font-weight:600}
+.rule .dec{color:var(--muted);grid-column:2}
+.ecart{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;align-items:end}
+.ecart label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+.ecart input{width:100%}
+.result{margin-top:14px;display:grid;gap:6px}
+.result div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding-bottom:4px}
+.result b{font-weight:600}
+.foot{color:var(--muted);font-size:12.5px;margin-top:8px}
+@media (prefers-reduced-motion: no-preference){ .bar i{transition:width .3s ease} }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Pilotage du plan Muséum 2027-2036</b><span>Scénario S2 « Diversification équilibrée » · 500 M€ sur 10 ans</span></div>
+    <nav class="tabs" aria-label="Vues">
+      <a href="#synthese">Synthèse</a>
+      <a href="#indicateurs">Indicateurs</a>
+      <a href="#financement">Financement</a>
+      <a href="#actions">Actions</a>
+      <a href="#alertes">Alertes</a>
+    </nav>
+  </div>
+</header>
+<div class="demo">
+  <div class="wrap">
+    <span><strong>Situation au 31 décembre 2027</strong> · données de démonstration, modifiables : les statuts et les alertes se recalculent.</span>
+    <button class="btn" id="reset" type="button">Rétablir les données de démonstration</button>
+  </div>
+</div>
+
+<main class="wrap">
+
+<!-- SYNTHÈSE -->
+<section class="view" id="v-synthese">
+  <div><h1>Où en est le plan fin 2027</h1><p class="lead">Phase 1 « Sécuriser » en cours. Le comité de performance suit treize indicateurs, avec un seuil de vigilance et un seuil d'alerte chacun.</p></div>
+  <div class="counts" id="counts"></div>
+  <div class="grid g4" id="figs"></div>
+  <div class="panel"><h2>Phases et portes de décision</h2><div class="scroll"><svg id="timeline" viewBox="0 0 960 168" width="100%" style="min-width:560px" role="img" aria-label="Frise des trois phases du plan, de 2027 à 2036"></svg></div></div>
+  <div class="panel"><h2>Points d'attention</h2><ul class="att" id="attention"></ul></div>
+</section>
+
+<!-- INDICATEURS -->
+<section class="view" id="v-indicateurs" hidden>
+  <div><h1>Indicateurs et seuils d'alerte</h1><p class="lead">Saisissez la valeur réalisée : le statut se met à jour selon les seuils de la Mission 5. Les recettes et économies nouvelles (R2, R3) se calculent depuis l'onglet Actions.</p></div>
+  <div class="panel"><div class="scroll"><table>
+    <thead><tr><th>Indicateur</th><th class="n">Réalisé</th><th>Mesure</th><th>Cible</th><th>Vigilance</th><th>Alerte</th><th>Statut</th></tr></thead>
+    <tbody id="kpi-body"></tbody>
+  </table></div></div>
+</section>
+
+<!-- FINANCEMENT -->
+<section class="view" id="v-financement" hidden>
+  <div><h1>Financement : prévu et réalisé</h1><p class="lead">Programmation annuelle des investissements, encaissements de l'année par source et analyse des écarts sur une opération.</p></div>
+  <div class="panel"><h2>Investissements programmés et réalisés (M€)</h2>
+    <div class="scroll"><svg id="chart" viewBox="0 0 640 240" width="100%" role="img" aria-label="Investissements programmés par an de 2027 à 2036 et réalisé 2027"></svg></div>
+    <div class="legend"><span><i class="sw" style="background:var(--accent-soft);border:1px solid var(--accent)"></i>Programmé (plan de financement S2)</span><span><i class="sw" style="background:var(--accent)"></i>Réalisé</span></div>
+  </div>
+  <div class="grid g2">
+    <div class="panel"><h2>Sources de financement 2027</h2><div class="scroll"><table>
+      <thead><tr><th>Source</th><th class="n">Attendu</th><th class="n">Encaissé</th><th class="n">Taux</th><th>Statut</th></tr></thead>
+      <tbody id="src-body"></tbody>
+    </table></div><p class="foot">Attendu 2027 : moitié de la phase 1 du plan de financement (60 M€ sur 2027-2028).</p></div>
+    <div class="panel"><h2>Analyse d'un écart (prix et quantité)</h2>
+      <form class="ecart" id="ecart-form">
+        <label for="qp">Quantité prévue (m²)<input type="number" id="qp" value="10000" step="100"></label>
+        <label for="pp">Prix prévu (€/m²)<input type="number" id="pp" value="1000" step="1"></label>
+        <label for="qr">Quantité réelle (m²)<input type="number" id="qr" value="10800" step="100"></label>
+        <label for="pr">Prix réel (€/m²)<input type="number" id="pr" value="1037" step="1"></label>
+      </form>
+      <div class="result" id="ecart-out"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ACTIONS -->
+<section class="view" id="v-actions" hidden>
+  <div><h1>Actions d'optimisation (Mission 4)</h1><p class="lead">Neuf leviers, chacun avec un pilote, une échéance et un gain annuel visé. Le réalisé 2027 alimente les indicateurs R2 et R3.</p></div>
+  <div class="grid g4" id="act-figs"></div>
+  <div class="panel"><div class="scroll"><table>
+    <thead><tr><th>Levier</th><th>Pilote</th><th>Échéance</th><th class="n">Gain visé à terme</th><th class="n">Visé 2027</th><th class="n">Réalisé 2027</th><th>État</th></tr></thead>
+    <tbody id="act-body"></tbody>
+  </table></div></div>
+</section>
+
+<!-- ALERTES -->
+<section class="view" id="v-alertes" hidden>
+  <div><h1>Alertes et décisions</h1><p class="lead">Tout indicateur en zone rouge déclenche une note d'alerte : constat sous 48 heures, plan d'action sous 15 jours. Les règles de décision sont fixées à l'avance (Mission 5, section 5.5).</p></div>
+  <div class="panel"><h2>Notes d'alerte à produire</h2><ul class="att" id="notes"></ul></div>
+  <div class="panel"><h2>Règles de décision</h2><div id="rules"></div></div>
+</section>
+
+</main>
+
+<script>
+(function(){
+"use strict";
+var SITUATION = new Date(2027, 11, 31);
+var KEY = "mnhn-pilotage-v1";
+
+/* ---------- données de démonstration ---------- */
+function demo(){
+  return {
+    kpi: {F1:64, F2:1.5, F3:35.4, F4:82, R1:3.4, R4:3.52, P1:24.5, P2:6.5, P3:38, C1:96, C2:3},
+    sinistre: false,
+    src: {auto:10, etat:8, intr:2.2},
+    act: {
+      energie:{real:0.45, etat:"En cours"}, achats:{real:0.6, etat:"En cours"}, orga:{real:0.35, etat:"En cours"},
+      maint:{real:0, etat:"À lancer"}, immo:{real:0, etat:"À lancer"},
+      tarif:{real:0.9, etat:"En cours"}, priva:{real:0, etat:"À lancer"}, itin:{real:0, etat:"À lancer"}, conc:{real:0, etat:"À lancer"}
+    }
+  };
+}
+var state = demo();
+try { var saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved && saved.kpi && saved.act && saved.src) state = saved; } catch(e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {} }
+
+var ACTIONS = [
+  {id:"energie", type:"Économie", nom:"Énergie", pilote:"Patrimoine immobilier", ech:"2027-2030", cible:1.5, c27:0.5, jalon:"−10 % fin 2028"},
+  {id:"achats", type:"Économie", nom:"Achats mutualisés", pilote:"Achats", ech:"2027-2028", cible:1.2, c27:0.6, jalon:"80 % des marchés mutualisés fin 2028"},
+  {id:"orga", type:"Économie", nom:"Organisation", pilote:"Finances et RH", ech:"2027-2028", cible:0.7, c27:0.4, jalon:"Factures traitées sans papier fin 2028"},
+  {id:"maint", type:"Économie", nom:"Maintenance préventive", pilote:"Patrimoine immobilier", ech:"2028-2029", cible:0.8, c27:0, jalon:"Plus de 60 % de préventif fin 2029"},
+  {id:"immo", type:"Économie", nom:"Regroupement des réserves", pilote:"Patrimoine immobilier", ech:"2030-2031", cible:0.8, c27:0, jalon:"Fin des locations extérieures en 2031"},
+  {id:"tarif", type:"Recette", nom:"Tarif hors EEE", pilote:"Publics", ech:"Septembre 2027", cible:2.5, c27:1.0, jalon:"Application en septembre 2027"},
+  {id:"priva", type:"Recette", nom:"Privatisation d'espaces", pilote:"Direction commerciale", ech:"2029-2030", cible:1.5, c27:0, jalon:"60 événements par an en 2030"},
+  {id:"itin", type:"Recette", nom:"Itinérance et licences", pilote:"Expositions", ech:"2030-2031", cible:1.5, c27:0, jalon:"2 expositions itinérantes par an"},
+  {id:"conc", type:"Recette", nom:"Concessions", pilote:"Finances", ech:"Renouvellement 2028", cible:0.5, c27:0, jalon:"Redevance relevée de 2 points"}
+];
+var ETATS = ["À lancer","En cours","Terminé","En retard"];
+
+function sumAct(type, field){ return ACTIONS.filter(function(a){return a.type===type;}).reduce(function(s,a){ return s + (field==="real" ? Number(state.act[a.id].real)||0 : a[field]); },0); }
+
+var KPIS = [
+  {axe:"Axe financier"},
+  {id:"F1", nom:"Fonds de roulement", unit:"jours", kind:"min", vig:70, alert:60, cible:"73 j fin 2028", vigT:"< 70 j", alertT:"< 60 j (plancher)"},
+  {id:"F2", nom:"Encours de dette / budget", unit:"%", kind:"max", vig:15, alert:18, cible:"≤ 15 %", vigT:"> 15 %", alertT:"> 18 %"},
+  {id:"F3", nom:"Part des ressources propres", unit:"%", kind:"retard", traj:35.5, vig:1, alert:2, cible:"40 % en 2036 (35,5 % fin 2027)", vigT:"Retard de 1 pt", alertT:"Retard de 2 pts"},
+  {id:"F4", nom:"Exécution des crédits de paiement", unit:"%", kind:"bande", lv:85, la:75, hv:105, ha:110, cible:"90 à 100 %", vigT:"< 85 % ou > 105 %", alertT:"< 75 % ou > 110 %"},
+  {axe:"Axe ressources"},
+  {id:"R1", nom:"Mécénat collecté", unit:"M€", kind:"ratio", obj:5, vig:85, alert:70, cible:"5 M€ en 2027", vigT:"< 85 %", alertT:"< 70 %"},
+  {id:"R2", nom:"Recettes nouvelles", unit:"M€", kind:"ratio", obj:1.0, vig:90, alert:80, cible:"1,0 M€ en 2027", vigT:"< 90 %", alertT:"< 80 %", calc:function(){return sumAct("Recette","real");}},
+  {id:"R3", nom:"Économies réalisées", unit:"M€", kind:"ratio", obj:1.5, vig:85, alert:70, cible:"1,5 M€ en 2027", vigT:"< 85 %", alertT:"< 70 %", calc:function(){return sumAct("Économie","real");}},
+  {id:"R4", nom:"Fréquentation sur 12 mois", unit:"M vis.", kind:"min", vig:3.4, alert:3.25, cible:"≥ 3,6 M", vigT:"< 3,4 M", alertT:"< 3,25 M"},
+  {axe:"Axe patrimoine et investissement"},
+  {id:"P1", nom:"Investissement réalisé", unit:"M€", kind:"ecart", obj:30, vig:10, alert:20, cible:"30 M€ en 2027", vigT:"Écart > 10 %", alertT:"Écart > 20 %"},
+  {id:"P2", nom:"Dérive du coût des opérations", unit:"%", kind:"max", vig:5, alert:10, cible:"≤ 5 %", vigT:"> 5 %", alertT:"> 10 %"},
+  {id:"P3", nom:"Bâtiments à risque traités", unit:"%", kind:"retard", traj:50, vig:10, alert:20, cible:"100 % fin 2028 (jalon 50 % fin 2027)", vigT:"Retard de 10 pts", alertT:"Retard de 20 pts"},
+  {axe:"Axe collections et environnement"},
+  {id:"C1", nom:"Collections prioritaires à l'abri", unit:"%", kind:"retard", traj:100, vig:10, alert:null, sinistre:true, cible:"100 % fin 2027", vigT:"Retard de 10 pts", alertT:"Tout sinistre"},
+  {id:"C2", nom:"Baisse de la consommation d'énergie", unit:"%", kind:"retard", traj:5, vig:3, alert:6, cible:"−10 % fin 2028 (−5 % fin 2027)", vigT:"Retard de 3 pts", alertT:"Retard de 6 pts"}
+];
+var KMAP = {}; KPIS.forEach(function(k){ if(k.id) KMAP[k.id]=k; });
+
+var nf1 = new Intl.NumberFormat("fr-FR",{maximumFractionDigits:1, minimumFractionDigits:0});
+var nf2 = new Intl.NumberFormat("fr-FR",{maximumFractionDigits:2});
+function f1(x){ return nf1.format(x); }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+
+function val(k){ return k.calc ? k.calc() : Number(state.kpi[k.id]); }
+
+function evaluate(k){
+  var v = val(k), st = "ok", m = "";
+  if (!isFinite(v)) return {st:"vig", m:"Valeur à saisir", v:v};
+  if (k.kind==="min"){ st = v<k.alert ? "alerte" : v<k.vig ? "vig" : "ok"; m = f1(v)+" "+k.unit; }
+  else if (k.kind==="max"){ st = v>k.alert ? "alerte" : v>k.vig ? "vig" : "ok"; m = f1(v)+" "+k.unit; }
+  else if (k.kind==="retard"){ var r = Math.max(0, k.traj - v); st = (k.alert!==null && r>k.alert) ? "alerte" : r>k.vig ? "vig" : "ok"; m = r>0 ? "Retard de "+f1(r)+" pt"+(r>=2?"s":"") : "Dans les temps"; if (k.sinistre && state.sinistre){ st="alerte"; m += " · sinistre déclaré"; } }
+  else if (k.kind==="bande"){ st = (v<k.la||v>k.ha) ? "alerte" : (v<k.lv||v>k.hv) ? "vig" : "ok"; m = f1(v)+" % des crédits prévus"; }
+  else if (k.kind==="ratio"){ var p = v/k.obj*100; st = p<k.alert ? "alerte" : p<k.vig ? "vig" : "ok"; m = Math.round(p)+" % de l'objectif"; }
+  else if (k.kind==="ecart"){ var e = Math.abs(k.obj - v)/k.obj*100; st = e>k.alert ? "alerte" : e>k.vig ? "vig" : "ok"; m = "Écart de "+Math.round(e)+" %"; }
+  return {st:st, m:m, v:v};
+}
+var LABEL = {ok:"Conforme", vig:"Vigilance", alerte:"Alerte"};
+function pill(st){ return '<span class="pill '+st+'">'+LABEL[st]+'</span>'; }
+
+/* ---------- SYNTHÈSE ---------- */
+var PROG = [30,30,50,50,50,58,58,58,58,58];
+function renderSynthese(){
+  var c = {ok:0, vig:0, alerte:0}, list = [];
+  KPIS.forEach(function(k){ if(!k.id) return; var e = evaluate(k); c[e.st]++; if (e.st!=="ok") list.push({k:k,e:e}); });
+  document.getElementById("counts").innerHTML = pill("ok").replace(LABEL.ok, c.ok+" conformes") + pill("vig").replace(LABEL.vig, c.vig+" en vigilance") + pill("alerte").replace(LABEL.alerte, c.alerte+" en alerte");
+
+  var p1 = val(KMAP.P1), f1v = val(KMAP.F1), dette = val(KMAP.F2);
+  var gains = sumAct("Recette","real") + sumAct("Économie","real"), gainsObj = 2.5;
+  var figs = [
+    {k:"Investi en 2027", v:f1(p1), u:"M€", s:"sur "+f1(PROG[0])+" M€ programmés", pct:p1/PROG[0]},
+    {k:"Fonds de roulement", v:f1(f1v), u:"jours", s:"plancher 60 j · cible 73 j fin 2028", pct:f1v/73},
+    {k:"Gains de gestion 2027", v:f1(gains), u:"M€", s:"sur "+f1(gainsObj)+" M€ visés (Mission 4)", pct:gains/gainsObj},
+    {k:"Endettement", v:f1(dette), u:"%", s:"du budget · plafond fixé à 20 %", pct:dette/20}
+  ];
+  document.getElementById("figs").innerHTML = figs.map(function(f){
+    return '<div class="panel fig"><span class="k">'+f.k+'</span><span class="v">'+f.v+'<small>'+f.u+'</small></span><div class="bar"><i style="width:'+Math.max(0,Math.min(100,f.pct*100))+'%"></i></div><span class="s">'+f.s+'</span></div>';
+  }).join("");
+
+  list.sort(function(a,b){ return (b.e.st==="alerte") - (a.e.st==="alerte"); });
+  document.getElementById("attention").innerHTML = list.length ? list.map(function(x){
+    return '<li>'+pill(x.e.st)+'<div><b><span class="tag">'+x.k.id+'</span> '+esc(x.k.nom)+'</b><p>'+esc(x.e.m)+' · cible : '+esc(x.k.cible)+'</p></div></li>';
+  }).join("") : '<li><div><b>Aucun indicateur hors cible.</b><p>Tous les indicateurs sont conformes à la fin du trimestre.</p></div></li>';
+  drawTimeline();
+}
+
+function drawTimeline(){
+  var x0=12, x1=948, y=58, h=46;
+  function X(yr){ return x0 + (yr-2027)/(2037-2027)*(x1-x0); }
+  var phases = [
+    {n:"1. Sécuriser", a:2027, b:2029, m:"60 M€"},
+    {n:"2. Sauver et rouvrir", a:2029, b:2032, m:"150 M€"},
+    {n:"3. Transformer", a:2032, b:2037, m:"290 M€"}
+  ];
+  var s = "";
+  phases.forEach(function(p,i){
+    var cur = i===0;
+    s += '<rect x="'+(X(p.a)+2)+'" y="'+y+'" width="'+(X(p.b)-X(p.a)-4)+'" height="'+h+'" rx="6" fill="'+(cur?"var(--accent-soft)":"var(--sunk)")+'" stroke="'+(cur?"var(--accent)":"var(--line)")+'" stroke-width="'+(cur?1.5:1)+'"></rect>';
+    s += '<text class="lbl" x="'+(X(p.a)+10)+'" y="'+(y+19)+'">'+p.n+'</text><text x="'+(X(p.a)+10)+'" y="'+(y+36)+'">'+p.a+'-'+(p.b-1)+' · '+p.m+'</text>';
+  });
+  [[2029,"Porte 1","Contrat avec l'État"],[2032,"Porte 2","Phase 3 financée à 80 %"]].forEach(function(g){
+    var gx = X(g[0]);
+    s += '<text class="lbl" x="'+gx+'" y="14" text-anchor="middle">'+g[1]+'</text><text x="'+gx+'" y="29" text-anchor="middle">'+g[2]+'</text>';
+    s += '<line x1="'+gx+'" x2="'+gx+'" y1="34" y2="'+(y-2)+'" stroke="var(--ink)"></line><path d="M'+gx+' '+(y-14)+' l7 7 l-7 7 l-7 -7z" fill="var(--ink)"></path>';
+  });
+  for (var yr=2027; yr<=2036; yr++){
+    s += '<line x1="'+X(yr)+'" x2="'+X(yr)+'" y1="'+(y+h+4)+'" y2="'+(y+h+9)+'" stroke="var(--muted)"></line>';
+    s += '<text x="'+(X(yr)+X(yr+1))/2+'" y="'+(y+h+22)+'" text-anchor="middle">'+yr+'</text>';
+  }
+  var nx = X(2028);
+  s += '<path d="M'+(nx-6)+' '+(y-12)+' h12 l-6 8z" fill="var(--crit)"></path>';
+  s += '<line x1="'+nx+'" x2="'+nx+'" y1="'+(y+h+2)+'" y2="'+(y+h+32)+'" stroke="var(--crit)" stroke-width="1.5" stroke-dasharray="4 3"></line>';
+  s += '<text x="'+nx+'" y="'+(y+h+46)+'" text-anchor="middle" style="fill:var(--crit);font-weight:600">Situation : fin 2027</text>';
+  document.getElementById("timeline").innerHTML = s;
+}
+
+/* ---------- INDICATEURS ---------- */
+function renderKpis(){
+  var body = document.getElementById("kpi-body"), html = "";
+  KPIS.forEach(function(k){
+    if (!k.id){ html += '<tr class="axe"><td colspan="7">'+k.axe+'</td></tr>'; return; }
+    var e = evaluate(k);
+    var input = k.calc
+      ? '<b>'+nf2.format(e.v)+'</b><span class="sub">calculé (Actions)</span>'
+      : '<input type="number" step="0.1" id="kpi-'+k.id+'" data-k="'+k.id+'" value="'+state.kpi[k.id]+'" aria-label="Valeur réalisée '+k.id+'"><span class="sub">'+k.unit+'</span>';
+    if (k.sinistre) input += '<label class="sub"><input type="checkbox" id="sinistre" '+(state.sinistre?"checked":"")+'> sinistre</label>';
+    html += '<tr class="row-'+e.st+'" id="row-'+k.id+'"><td><span class="tag">'+k.id+'</span> '+esc(k.nom)+'</td><td class="n">'+input+'</td><td class="m">'+esc(e.m)+'</td><td>'+esc(k.cible)+'</td><td>'+esc(k.vigT)+'</td><td>'+esc(k.alertT)+'</td><td class="st">'+pill(e.st)+'</td></tr>';
+  });
+  body.innerHTML = html;
+}
+function refreshKpiRows(){
+  KPIS.forEach(function(k){
+    if (!k.id) return;
+    var row = document.getElementById("row-"+k.id); if (!row) return;
+    var e = evaluate(k);
+    row.className = "row-"+e.st;
+    row.querySelector(".m").textContent = e.m;
+    row.querySelector(".st").innerHTML = pill(e.st);
+    if (k.calc) row.querySelector("td.n b").textContent = nf2.format(e.v);
+  });
+}
+document.getElementById("kpi-body").addEventListener("input", function(ev){
+  var t = ev.target;
+  if (t.id==="sinistre"){ state.sinistre = t.checked; }
+  else if (t.dataset.k){ state.kpi[t.dataset.k] = t.value==="" ? NaN : Number(t.value); }
+  else return;
+  save(); refreshKpiRows(); renderAll(false);
+});
+
+/* ---------- FINANCEMENT ---------- */
+function renderChart(){
+  var W=640,H=240,L=40,R=10,T=14,B=30, max=60;
+  function Y(v){ return T + (1 - v/max)*(H-T-B); }
+  var bw = (W-L-R)/PROG.length, s = "";
+  [0,20,40,60].forEach(function(t){ s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(t)+'" y2="'+Y(t)+'" stroke="var(--line)"></line><text x="'+(L-6)+'" y="'+(Y(t)+4)+'" text-anchor="end">'+t+'</text>'; });
+  var real = val(KMAP.P1);
+  PROG.forEach(function(p,i){
+    var x = L + i*bw + bw*0.18, w = bw*0.64, yr = 2027+i;
+    s += '<rect x="'+x+'" y="'+Y(p)+'" width="'+w+'" height="'+(Y(0)-Y(p))+'" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1"></rect>';
+    if (i===0 && isFinite(real)){
+      var rv = Math.min(real, max);
+      s += '<rect x="'+(x+w*0.2)+'" y="'+Y(rv)+'" width="'+(w*0.6)+'" height="'+(Y(0)-Y(rv))+'" fill="var(--accent)"></rect>';
+      s += '<text class="lbl" x="'+(x+w/2)+'" y="'+(Y(Math.max(rv,p))-6)+'" text-anchor="middle">'+f1(real)+' / '+p+'</text>';
+    } else {
+      s += '<text x="'+(x+w/2)+'" y="'+(Y(p)-6)+'" text-anchor="middle">'+p+'</text>';
+    }
+    s += '<text x="'+(x+w/2)+'" y="'+(H-10)+'" text-anchor="middle">'+yr+'</text>';
+  });
+  document.getElementById("chart").innerHTML = s;
+}
+var SOURCES = [
+  {id:"auto", nom:"Autofinancement", att:10},
+  {id:"etat", nom:"Dotation exceptionnelle de l'État", att:10},
+  {id:"mec", nom:"Mécénat", att:5, from:"R1"},
+  {id:"rpn", nom:"Ressources propres nouvelles", att:1, from:"R2"},
+  {id:"intr", nom:"Intracting", att:4}
+];
+function srcVal(s){ return s.from ? val(KMAP[s.from]) : Number(state.src[s.id]); }
+function renderSources(){
+  var html = "", ta=0, te=0;
+  SOURCES.forEach(function(s){
+    var e = srcVal(s), r = s.att ? e/s.att*100 : 0; ta += s.att; te += isFinite(e)?e:0;
+    var st = r<70 ? "alerte" : r<85 ? "vig" : "ok";
+    var cell = s.from ? '<b>'+nf2.format(e)+'</b><span class="sub">indicateur '+s.from+'</span>' : '<input type="number" step="0.1" id="src-'+s.id+'" data-s="'+s.id+'" value="'+state.src[s.id]+'" aria-label="Encaissé '+esc(s.nom)+'">';
+    html += '<tr><td>'+esc(s.nom)+'</td><td class="n">'+f1(s.att)+'</td><td class="n">'+cell+'</td><td class="n">'+Math.round(r)+' %</td><td>'+pill(st)+'</td></tr>';
+  });
+  html += '<tr><td><b>Total</b></td><td class="n"><b>'+f1(ta)+'</b></td><td class="n"><b>'+nf2.format(te)+'</b></td><td class="n"><b>'+Math.round(te/ta*100)+' %</b></td><td></td></tr>';
+  document.getElementById("src-body").innerHTML = html;
+}
+document.getElementById("src-body").addEventListener("change", function(ev){
+  var t = ev.target; if (!t.dataset.s) return;
+  state.src[t.dataset.s] = Number(t.value)||0; save(); renderSources(); renderRules();
+});
+function renderEcart(){
+  var g = function(id){ return Number(document.getElementById(id).value)||0; };
+  var qp=g("qp"), pp=g("pp"), qr=g("qr"), pr=g("pr");
+  var prev = qp*pp/1e6, reel = qr*pr/1e6, tot = reel-prev, ep = (pr-pp)*qr/1e6, eq = (qr-qp)*pp/1e6;
+  var pct = prev ? tot/prev*100 : 0, st = Math.abs(pct)>10 ? "alerte" : Math.abs(pct)>5 ? "vig" : "ok";
+  function sg(x){ return (x>0?"+":"")+nf2.format(x)+" M€"; }
+  var cause = Math.abs(eq) >= Math.abs(ep) ? "Écart surtout lié au périmètre : revue de programme." : "Écart surtout lié aux prix : renégociation ou indexation.";
+  document.getElementById("ecart-out").innerHTML =
+    '<div><span>Montant prévu</span><b>'+nf2.format(prev)+' M€</b></div>'+
+    '<div><span>Montant réalisé</span><b>'+nf2.format(reel)+' M€</b></div>'+
+    '<div><span>Écart sur prix : (prix réel − prix prévu) × quantité réelle</span><b>'+sg(ep)+'</b></div>'+
+    '<div><span>Écart sur quantité : (quantité réelle − quantité prévue) × prix prévu</span><b>'+sg(eq)+'</b></div>'+
+    '<div><span>Écart total ('+(pct>0?"+":"")+Math.round(pct)+' %)</span><b>'+sg(tot)+'</b></div>'+
+    '<div style="border:0"><span>'+cause+'</span>'+pill(st)+'</div>';
+}
+document.getElementById("ecart-form").addEventListener("input", renderEcart);
+document.getElementById("ecart-form").addEventListener("submit", function(e){ e.preventDefault(); });
+
+/* ---------- ACTIONS ---------- */
+function renderActions(){
+  var html = "", last = "";
+  ACTIONS.forEach(function(a){
+    if (a.type!==last){ html += '<tr class="axe"><td colspan="7">'+(a.type==="Économie"?"Leviers de dépenses":"Leviers de recettes")+'</td></tr>'; last = a.type; }
+    var s = state.act[a.id];
+    var opts = ETATS.map(function(e){ return '<option'+(e===s.etat?" selected":"")+'>'+e+'</option>'; }).join("");
+    var cls = s.etat==="En retard" ? "row-alerte" : (a.c27>0 && Number(s.real) < a.c27*0.85) ? "row-vig" : "row-ok";
+    html += '<tr class="'+cls+'"><td>'+esc(a.nom)+'<span class="sub">'+esc(a.jalon)+'</span></td><td>'+esc(a.pilote)+'</td><td>'+esc(a.ech)+'</td><td class="n">'+f1(a.cible)+' M€/an</td><td class="n">'+(a.c27?f1(a.c27)+' M€':"–")+'</td>'+
+      '<td class="n"><input type="number" step="0.05" min="0" id="act-'+a.id+'" data-a="'+a.id+'" value="'+s.real+'" aria-label="Réalisé 2027 '+esc(a.nom)+'"></td>'+
+      '<td><select id="etat-'+a.id+'" data-e="'+a.id+'" aria-label="État '+esc(a.nom)+'">'+opts+'</select></td></tr>';
+  });
+  document.getElementById("act-body").innerHTML = html;
+  renderActFigs();
+}
+function renderActFigs(){
+  var ecoR = sumAct("Économie","real"), ecoO = sumAct("Économie","c27"), recR = sumAct("Recette","real"), recO = sumAct("Recette","c27");
+  var n = {}; ETATS.forEach(function(e){ n[e]=0; }); ACTIONS.forEach(function(a){ n[state.act[a.id].etat]++; });
+  var figs = [
+    {k:"Économies 2027", v:nf2.format(ecoR), u:"M€", s:"sur "+f1(ecoO)+" M€ visés", pct:ecoR/ecoO},
+    {k:"Recettes nouvelles 2027", v:nf2.format(recR), u:"M€", s:"sur "+f1(recO)+" M€ visés", pct:recR/recO},
+    {k:"Leviers lancés", v:(n["En cours"]+n["Terminé"]+n["En retard"]), u:"/ "+ACTIONS.length, s:n["Terminé"]+" terminé(s), "+n["À lancer"]+" à lancer", pct:(ACTIONS.length-n["À lancer"])/ACTIONS.length},
+    {k:"Leviers en retard", v:n["En retard"], u:"", s:n["En retard"]?"à traiter en comité de performance":"aucun retard signalé", pct:n["En retard"]/ACTIONS.length}
+  ];
+  document.getElementById("act-figs").innerHTML = figs.map(function(f){
+    return '<div class="panel fig"><span class="k">'+f.k+'</span><span class="v">'+f.v+'<small>'+f.u+'</small></span><div class="bar"><i style="width:'+Math.max(0,Math.min(100,f.pct*100))+'%"></i></div><span class="s">'+f.s+'</span></div>';
+  }).join("");
+}
+document.getElementById("act-body").addEventListener("change", function(ev){
+  var t = ev.target;
+  if (t.dataset.a){ state.act[t.dataset.a].real = Number(t.value)||0; }
+  else if (t.dataset.e){ state.act[t.dataset.e].etat = t.value; }
+  else return;
+  save(); renderActions(); renderAll(false);
+});
+
+/* ---------- ALERTES ---------- */
+function addDays(d,n){ var x = new Date(d); x.setDate(x.getDate()+n); return x.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}); }
+function renderNotes(){
+  var reds = KPIS.filter(function(k){ return k.id && evaluate(k).st==="alerte"; });
+  document.getElementById("notes").innerHTML = reds.length ? reds.map(function(k){
+    var e = evaluate(k);
+    return '<li>'+pill("alerte")+'<div><b><span class="tag">'+k.id+'</span> '+esc(k.nom)+' : '+esc(e.m)+'</b><p>Constat à la direction générale avant le '+addDays(SITUATION,2)+' · plan d\'action avant le '+addDays(SITUATION,15)+'</p></div></li>';
+  }).join("") : '<li><div><b>Aucune note d\'alerte à produire.</b><p>Aucun indicateur n\'est en zone rouge.</p></div></li>';
+}
+function renderRules(){
+  var r1 = val(KMAP.R1)/KMAP.R1.obj*100, etat = Number(state.src.etat)/10*100, fr = val(KMAP.F1), p2 = val(KMAP.P2), freq = (val(KMAP.R4)-3.6)/3.6*100, dette = val(KMAP.F2);
+  var allOk = KPIS.every(function(k){ return !k.id || evaluate(k).st==="ok"; });
+  var rules = [
+    {sig:"Mécénat sous 70 % de l'objectif pendant deux trimestres", now:"Mécénat à "+Math.round(r1)+" %", on:r1<70, dec:"Activer la réserve de leviers du scénario S3 (concessions, licences) et étaler la phase 3.", note:"Seuil franchi ce trimestre : décision au prochain comité si la situation persiste."},
+    {sig:"Dotation exceptionnelle sous 75 % du montant attendu", now:"Dotation versée à "+Math.round(etat)+" %", on:etat<75, dec:"Préserver les phases 1 et 2, décaler la phase 3 (test de résistance de la Mission 3)."},
+    {sig:"Fonds de roulement sous 60 jours", now:"Fonds de roulement à "+f1(fr)+" jours", on:fr<60, dec:"Geler les engagements non prioritaires et mobiliser la ligne de trésorerie à court terme."},
+    {sig:"Dérive de coût supérieure à 10 % sur une opération", now:"Dérive à "+f1(p2)+" %", on:p2>10, dec:"Revue de programme : réduction de périmètre, renégociation ou report de l'opération."},
+    {sig:"Fréquentation en recul de plus de 10 %", now:"Fréquentation à "+(freq>0?"+":"")+f1(freq)+" %", on:freq<-10, dec:"Plan de relance des publics et révision de la politique tarifaire."},
+    {sig:"Encours de dette supérieur à 18 % du budget", now:"Dette à "+f1(dette)+" %", on:dette>18, dec:"Arrêt de tout nouvel emprunt."},
+    {sig:"Indicateurs durablement au-dessus de la cible", now:allOk?"Tous conformes ce trimestre":"Indicateurs hors cible ce trimestre", on:false, dec:"Accélérer la phase 3 (scénario de hausse S1)."}
+  ];
+  document.getElementById("rules").innerHTML = rules.map(function(r){
+    return '<div class="rule">'+(r.on?pill("alerte").replace(LABEL.alerte,"Déclenchée"):pill("ok").replace(LABEL.ok,"Non déclenchée"))+'<div><span class="sig">'+esc(r.sig)+'</span> <span class="sub">'+esc(r.now)+(r.on&&r.note?" · "+esc(r.note):"")+'</span></div><span class="dec">'+esc(r.dec)+'</span></div>';
+  }).join("");
+}
+
+/* ---------- navigation ---------- */
+var VIEWS = ["synthese","indicateurs","financement","actions","alertes"];
+function route(){
+  var h = (location.hash||"").replace("#",""); if (VIEWS.indexOf(h)<0) h = "synthese";
+  VIEWS.forEach(function(v){ document.getElementById("v-"+v).hidden = v!==h; });
+  document.querySelectorAll("nav.tabs a").forEach(function(a){ if (a.getAttribute("href")==="#"+h) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+}
+window.addEventListener("hashchange", function(){ route(); window.scrollTo(0,0); });
+
+function renderAll(full){
+  renderSynthese(); renderSources(); renderChart(); renderNotes(); renderRules();
+  if (full){ renderKpis(); renderActions(); renderEcart(); }
+  else { refreshKpiRows(); renderActFigs(); }
+}
+document.getElementById("reset").addEventListener("click", function(){
+  state = demo(); try { localStorage.removeItem(KEY); } catch(e) {}
+  renderAll(true);
+});
+route(); renderAll(true);
+})();
+</script>
+
+</html>
